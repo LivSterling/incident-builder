@@ -2,16 +2,31 @@
 
 import { AuthGuard } from "@/components/AuthGuard";
 import { AppShell } from "@/components/AppShell";
+import { IncidentForm } from "@/components/incidents/IncidentForm";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export default function NewIncidentPage() {
   return (
     <AuthGuard>
       <AppShell>
-        <div className="p-6">
-          <h1 className="text-2xl font-semibold">New Incident</h1>
-          <p className="mt-2 text-muted-foreground">
-            Create incident form will be implemented in Phase 5.
-          </p>
+        <div className="p-6 max-w-2xl">
+          <Card>
+            <CardHeader>
+              <CardTitle>New Incident</CardTitle>
+              <CardDescription>
+                Create a new incident postmortem. Use a template to pre-fill common fields.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <IncidentForm />
+            </CardContent>
+          </Card>
         </div>
       </AppShell>
     </AuthGuard>
