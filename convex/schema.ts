@@ -73,12 +73,14 @@ export default defineSchema({
     entityType: v.union(
       v.literal("incident"),
       v.literal("timeline"),
-      v.literal("actionItem")
+      v.literal("actionItem"),
+      v.literal("profile")
     ),
     entityId: v.union(
       v.id("incidents"),
       v.id("timelineEvents"),
-      v.id("actionItems")
+      v.id("actionItems"),
+      v.id("profiles")
     ),
     action: v.union(
       v.literal("create"),
