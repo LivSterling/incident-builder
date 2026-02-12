@@ -83,6 +83,52 @@ export const getIncident = query({
   },
 });
 
+/**
+ * Public read-only postmortem view. No auth required. Used for share page.
+ */
+export const getPublicPostmortem = query({
+  args: { id: v.id("incidents") },
+  handler: async (ctx, args) => {
+    const incident = await ctx.db.get(args.id);
+    if (!incident) {
+      return null;
+    }
+
+    const owner = await ctx.db.get(incident.ownerId);
+    const timelineEvents = await ctx.db
+      .query("timelineEvents")
+      .withIndex("by_incidentId", (q) => q.eq("incidentId", args.id))
+      .collect();
+    timelineEvents.sort((a, b) => a.occurredAt - b.occurredAt);
+
+    const actionItems = await ctx.db
+      .query("actionItems")
+      .withIndex("by_incidentId", (q) => q.eq("incidentId", args.id))
+      .collect();
+    const priorityOrder = { P0: 0, P1: 1, P2: 2 };
+    actionItems.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+
+    const actionItemsWithOwners = await Promise.all(
+      actionItems.map(async (item) => {
+        const ownerProfile = await ctx.db.get(item.ownerId);
+        return {
+          ...item,
+          ownerName: ownerProfile?.name ?? "Unknown",
+        };
+      })
+    );
+
+    return {
+      incident: {
+        ...incident,
+        ownerName: owner?.name ?? "Unknown",
+      },
+      timelineEvents,
+      actionItems: actionItemsWithOwners,
+    };
+  },
+});
+
 const incidentValidator = {
   title: v.string(),
   severity: v.union(

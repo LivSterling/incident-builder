@@ -12,6 +12,7 @@ import type * as actionItems from "../actionItems.js";
 import type * as auditLogs from "../auditLogs.js";
 import type * as helpers from "../helpers.js";
 import type * as incidents from "../incidents.js";
+import type * as seed from "../seed.js";
 import type * as timeline from "../timeline.js";
 import type * as users from "../users.js";
 
@@ -26,6 +27,7 @@ declare const fullApi: ApiFromModules<{
   auditLogs: typeof auditLogs;
   helpers: typeof helpers;
   incidents: typeof incidents;
+  seed: typeof seed;
   timeline: typeof timeline;
   users: typeof users;
 }>;

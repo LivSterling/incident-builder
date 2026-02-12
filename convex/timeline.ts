@@ -10,11 +10,11 @@ export const listTimelineEvents = query({
   handler: async (ctx, args) => {
     await getCurrentUser(ctx);
 
-    return await ctx.db
+    const events = await ctx.db
       .query("timelineEvents")
       .withIndex("by_incidentId", (q) => q.eq("incidentId", args.incidentId))
-      .order("asc")
       .collect();
+    return events.sort((a, b) => a.occurredAt - b.occurredAt);
   },
 });
 
