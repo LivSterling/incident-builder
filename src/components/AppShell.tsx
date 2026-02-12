@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { UserButton } from "@clerk/nextjs";
 import { LayoutDashboard, Menu, Plus, Users } from "lucide-react";
@@ -35,12 +36,18 @@ const navItems = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { isAuthenticated } = useConvexAuth();
   const syncProfile = useMutation(api.users.syncProfile);
-  const profile = useQuery(api.users.getCurrentUserProfile);
+  const profile = useQuery(
+    api.users.getCurrentUserProfile,
+    isAuthenticated ? {} : "skip"
+  );
 
   useEffect(() => {
-    syncProfile();
-  }, [syncProfile]);
+    if (isAuthenticated) {
+      syncProfile();
+    }
+  }, [isAuthenticated, syncProfile]);
 
   const NavContent = () => (
     <>

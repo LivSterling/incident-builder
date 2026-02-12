@@ -17,7 +17,17 @@ export const listActionItems = query({
 
     const priorityOrder = { P0: 0, P1: 1, P2: 2 };
     items.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
-    return items;
+
+    const result = await Promise.all(
+      items.map(async (item) => {
+        const owner = await ctx.db.get(item.ownerId);
+        return {
+          ...item,
+          ownerName: owner?.name ?? "Unknown",
+        };
+      })
+    );
+    return result;
   },
 });
 
