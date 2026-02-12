@@ -26,7 +26,7 @@ export default function DashboardPage() {
   return (
     <AuthGuard>
       <AppShell>
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <h1 className="text-2xl font-semibold">Dashboard</h1>
             <Button asChild>

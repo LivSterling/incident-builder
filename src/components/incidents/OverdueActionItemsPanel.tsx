@@ -62,7 +62,7 @@ export function OverdueActionItemsPanel() {
             No overdue action items. Great job!
           </p>
         ) : (
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -80,7 +80,10 @@ export function OverdueActionItemsPanel() {
                     item.dueDate
                   );
                   return (
-                    <TableRow key={item._id}>
+                    <TableRow
+                      key={item._id}
+                      className="bg-destructive/5"
+                    >
                       <TableCell className="font-medium">{item.title}</TableCell>
                       <TableCell>
                         <Link
@@ -92,10 +95,13 @@ export function OverdueActionItemsPanel() {
                       </TableCell>
                       <TableCell>{item.ownerName}</TableCell>
                       <TableCell className="text-destructive font-medium">
-                        {format(item.dueDate, "MMM d, yyyy")}
-                        <span className="ml-2 text-sm">
-                          ({daysOverdue} day{daysOverdue !== 1 ? "s" : ""}{" "}
-                          overdue)
+                        <span className="flex items-center gap-2">
+                          <AlertCircle className="size-4 shrink-0" />
+                          {format(item.dueDate, "MMM d, yyyy")}
+                          <span className="text-sm">
+                            ({daysOverdue} day{daysOverdue !== 1 ? "s" : ""}{" "}
+                            overdue)
+                          </span>
                         </span>
                       </TableCell>
                       <TableCell>

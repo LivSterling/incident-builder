@@ -19,6 +19,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { AdminRoleManagementDialog } from "@/components/admin/AdminRoleManagementDialog";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -36,6 +37,7 @@ const navItems = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [adminDialogOpen, setAdminDialogOpen] = useState(false);
   const { isAuthenticated } = useConvexAuth();
   const syncProfile = useMutation(api.users.syncProfile);
   const profile = useQuery(
@@ -73,19 +75,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <>
           <Separator />
           <div className="px-2 py-4">
-            <Link
-              href="/admin/users"
-              onClick={() => setOpen(false)}
+            <button
+              type="button"
+              onClick={() => {
+                setAdminDialogOpen(true);
+                setOpen(false);
+              }}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                pathname === "/admin/users"
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               )}
             >
               <Users className="size-4" />
               Manage Users
-            </Link>
+            </button>
           </div>
         </>
       )}
@@ -170,6 +173,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Main content */}
         <main className="flex-1 overflow-auto">{children}</main>
       </div>
+
+      <AdminRoleManagementDialog
+        open={adminDialogOpen}
+        onOpenChange={setAdminDialogOpen}
+      />
     </div>
   );
 }
