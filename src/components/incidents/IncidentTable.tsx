@@ -32,7 +32,7 @@ export function IncidentTable({ status, severity }: IncidentTableProps) {
 
   if (incidents === undefined) {
     return (
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -58,7 +58,7 @@ export function IncidentTable({ status, severity }: IncidentTableProps) {
 
   if (incidents.length === 0) {
     return (
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -83,7 +83,7 @@ export function IncidentTable({ status, severity }: IncidentTableProps) {
   }
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>

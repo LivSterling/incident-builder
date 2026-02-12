@@ -24,7 +24,7 @@ export default function IncidentDetailPage() {
   return (
     <AuthGuard>
       <AppShell>
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-6">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" asChild>
               <Link href="/dashboard">

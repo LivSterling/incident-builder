@@ -67,7 +67,7 @@ export function AuditLogTab({ incidentId }: AuditLogTabProps) {
       <p className="text-sm text-muted-foreground">
         Audit trail for this incident and its timeline events and action items.
       </p>
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

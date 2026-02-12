@@ -15,7 +15,7 @@ export default function NewIncidentPage() {
   return (
     <AuthGuard>
       <AppShell>
-        <div className="p-6 max-w-2xl">
+        <div className="p-4 sm:p-6 max-w-2xl">
           <Card>
             <CardHeader>
               <CardTitle>New Incident</CardTitle>
