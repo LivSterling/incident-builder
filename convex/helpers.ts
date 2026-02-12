@@ -92,8 +92,8 @@ export async function requireRole(
 export type AuditLogParams = {
   actorId: Id<"profiles">;
   actorName: string;
-  entityType: "incident" | "timeline" | "actionItem";
-  entityId: Id<"incidents"> | Id<"timelineEvents"> | Id<"actionItems">;
+  entityType: "incident" | "timeline" | "actionItem" | "profile";
+  entityId: Id<"incidents"> | Id<"timelineEvents"> | Id<"actionItems"> | Id<"profiles">;
   action: "create" | "update" | "delete" | "statusChange";
   changes: string;
 };
