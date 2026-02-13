@@ -94,7 +94,7 @@ export type AuditLogParams = {
   actorName: string;
   entityType: "incident" | "timeline" | "actionItem" | "profile";
   entityId: Id<"incidents"> | Id<"timelineEvents"> | Id<"actionItems"> | Id<"profiles">;
-  action: "create" | "update" | "delete" | "statusChange";
+  action: "create" | "update" | "delete" | "statusChange" | "autoCreate";
   changes: string;
 };
 
