@@ -38,6 +38,7 @@ import { UserSelect } from "@/components/shared/UserSelect";
 
 interface ActionItemsTabProps {
   incidentId: Id<"incidents">;
+  orgId: Id<"orgs">;
 }
 
 type ActionItemStatus = "OPEN" | "IN_PROGRESS" | "DONE";
@@ -45,7 +46,7 @@ type ActionItemPriority = "P0" | "P1" | "P2";
 
 const STATUS_ORDER: ActionItemStatus[] = ["OPEN", "IN_PROGRESS", "DONE"];
 
-export function ActionItemsTab({ incidentId }: ActionItemsTabProps) {
+export function ActionItemsTab({ incidentId, orgId }: ActionItemsTabProps) {
   const items = useQuery(api.actionItems.listActionItems, { incidentId });
   const profile = useQuery(api.users.getCurrentUserProfile);
   const addItem = useMutation(api.actionItems.addActionItem);
@@ -232,6 +233,7 @@ export function ActionItemsTab({ incidentId }: ActionItemsTabProps) {
                     <TableCell>
                       {editingId === item._id ? (
                         <UserSelect
+                          orgId={orgId}
                           value={editForm.ownerId || undefined}
                           onValueChange={(v) =>
                             setEditForm((prev) => ({ ...prev, ownerId: v }))
@@ -385,6 +387,7 @@ export function ActionItemsTab({ incidentId }: ActionItemsTabProps) {
               <label className="text-sm font-medium">Owner</label>
               <div className="mt-1">
                 <UserSelect
+                  orgId={orgId}
                   value={addForm.ownerId || undefined}
                   onValueChange={(v) =>
                     setAddForm((prev) => ({ ...prev, ownerId: v }))

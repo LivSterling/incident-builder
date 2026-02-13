@@ -2,6 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { format, differenceInDays } from "date-fns";
 import Link from "next/link";
 import { AlertCircle } from "lucide-react";
@@ -22,8 +23,19 @@ import {
 } from "@/components/ui/table";
 import { PriorityBadge } from "@/components/shared/PriorityBadge";
 
-export function OverdueActionItemsPanel() {
-  const overdueItems = useQuery(api.actionItems.listOverdueActionItems);
+interface OverdueActionItemsPanelProps {
+  orgId: Id<"orgs"> | null;
+}
+
+export function OverdueActionItemsPanel({ orgId }: OverdueActionItemsPanelProps) {
+  const overdueItems = useQuery(
+    api.actionItems.listOverdueActionItems,
+    orgId ? { orgId } : "skip"
+  );
+
+  if (!orgId) {
+    return null;
+  }
 
   if (overdueItems === undefined) {
     return (

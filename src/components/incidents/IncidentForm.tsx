@@ -73,10 +73,11 @@ export const INCIDENT_TEMPLATES = [
 ];
 
 interface IncidentFormProps {
+  orgId: import("../../../convex/_generated/dataModel").Id<"orgs">;
   onTemplateSelect?: (template: (typeof INCIDENT_TEMPLATES)[0]["value"]) => void;
 }
 
-export function IncidentForm({ onTemplateSelect }: IncidentFormProps) {
+export function IncidentForm({ orgId, onTemplateSelect }: IncidentFormProps) {
   const router = useRouter();
   const createIncident = useMutation(api.incidents.createIncident);
 
@@ -110,6 +111,7 @@ export function IncidentForm({ onTemplateSelect }: IncidentFormProps) {
 
       const ownerId = values.ownerId as Id<"profiles">;
       const incidentId = await createIncident({
+        orgId,
         title: values.title,
         severity: values.severity,
         service: values.service,
@@ -240,6 +242,7 @@ export function IncidentForm({ onTemplateSelect }: IncidentFormProps) {
               <FormLabel>Owner</FormLabel>
               <FormControl>
                 <UserSelect
+                  orgId={orgId}
                   value={field.value ? (field.value as Id<"profiles">) : undefined}
                   onValueChange={field.onChange}
                   placeholder="Select owner"

@@ -17,6 +17,27 @@ export const seedDemoData = mutation({
       return { skipped: true, reason: "Data already exists" };
     }
 
+    let defaultOrg = await ctx.db
+      .query("orgs")
+      .withIndex("by_slug", (q) => q.eq("slug", "default"))
+      .unique();
+    if (!defaultOrg) {
+      const now = Date.now();
+      const defaultOrgId = await ctx.db.insert("orgs", {
+        name: "Default Organization",
+        slug: "default",
+        createdAt: now,
+      });
+      await ctx.db.insert("orgMembers", {
+        orgId: defaultOrgId,
+        profileId: user._id,
+        joinedAt: now,
+      });
+      defaultOrg = await ctx.db.get(defaultOrgId);
+    }
+    if (!defaultOrg) throw new Error("Failed to create default org");
+    const orgId = defaultOrg._id;
+
     const profiles = await ctx.db.query("profiles").collect();
     const ownerId = profiles[0]?._id ?? user._id;
 
@@ -29,6 +50,7 @@ export const seedDemoData = mutation({
 
     // 1. VPN Outage (SEV2, MITIGATED) - 3 timeline events, 2 action items (one overdue)
     const vpnIncidentId = await ctx.db.insert("incidents", {
+      orgId,
       title: "VPN Outage",
       severity: "SEV2",
       status: "MITIGATED",
@@ -44,6 +66,7 @@ export const seedDemoData = mutation({
     });
 
     await writeAuditLog(ctx, {
+      orgId,
       actorId: user._id,
       actorName: user.name,
       entityType: "incident",
@@ -67,6 +90,7 @@ export const seedDemoData = mutation({
     ];
     for (const ev of vpnTimeline) {
       const eventId = await ctx.db.insert("timelineEvents", {
+        orgId,
         incidentId: vpnIncidentId,
         occurredAt: ev.occurredAt,
         message: ev.message,
@@ -74,6 +98,7 @@ export const seedDemoData = mutation({
         createdBy: user._id,
       });
       await writeAuditLog(ctx, {
+        orgId,
         actorId: user._id,
         actorName: user.name,
         entityType: "timeline",
@@ -99,6 +124,7 @@ export const seedDemoData = mutation({
     ];
     for (const item of vpnActionItems) {
       const itemId = await ctx.db.insert("actionItems", {
+        orgId,
         incidentId: vpnIncidentId,
         title: item.title,
         ownerId,
@@ -108,6 +134,7 @@ export const seedDemoData = mutation({
         createdBy: user._id,
       });
       await writeAuditLog(ctx, {
+        orgId,
         actorId: user._id,
         actorName: user.name,
         entityType: "actionItem",
@@ -119,6 +146,7 @@ export const seedDemoData = mutation({
 
     // 2. Bad Deploy (SEV1, OPEN) - 4 timeline events, 3 action items (one overdue)
     const deployIncidentId = await ctx.db.insert("incidents", {
+      orgId,
       title: "Bad Deploy",
       severity: "SEV1",
       status: "OPEN",
@@ -131,6 +159,7 @@ export const seedDemoData = mutation({
     });
 
     await writeAuditLog(ctx, {
+      orgId,
       actorId: user._id,
       actorName: user.name,
       entityType: "incident",
@@ -163,6 +192,7 @@ export const seedDemoData = mutation({
     ];
     for (const ev of deployTimeline) {
       const eventId = await ctx.db.insert("timelineEvents", {
+        orgId,
         incidentId: deployIncidentId,
         occurredAt: ev.occurredAt,
         message: ev.message,
@@ -170,6 +200,7 @@ export const seedDemoData = mutation({
         createdBy: user._id,
       });
       await writeAuditLog(ctx, {
+        orgId,
         actorId: user._id,
         actorName: user.name,
         entityType: "timeline",
@@ -201,6 +232,7 @@ export const seedDemoData = mutation({
     ];
     for (const item of deployActionItems) {
       const itemId = await ctx.db.insert("actionItems", {
+        orgId,
         incidentId: deployIncidentId,
         title: item.title,
         ownerId,
@@ -210,6 +242,7 @@ export const seedDemoData = mutation({
         createdBy: user._id,
       });
       await writeAuditLog(ctx, {
+        orgId,
         actorId: user._id,
         actorName: user.name,
         entityType: "actionItem",

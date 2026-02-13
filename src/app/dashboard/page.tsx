@@ -5,6 +5,7 @@ import { AuthGuard } from "@/components/AuthGuard";
 import { AppShell } from "@/components/AppShell";
 import { IncidentTable } from "@/components/incidents/IncidentTable";
 import { OverdueActionItemsPanel } from "@/components/incidents/OverdueActionItemsPanel";
+import { useOrg } from "@/contexts/OrgContext";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -19,14 +20,26 @@ import Link from "next/link";
 type StatusFilter = "ALL" | "OPEN" | "MITIGATED" | "CLOSED";
 type SeverityFilter = "ALL" | "SEV1" | "SEV2" | "SEV3" | "SEV4";
 
-export default function DashboardPage() {
+function DashboardContent() {
   const [status, setStatus] = useState<StatusFilter>("ALL");
   const [severity, setSeverity] = useState<SeverityFilter>("ALL");
+  const { activeOrgId, userOrgs, isLoading } = useOrg();
+
+  if (!isLoading && userOrgs.length === 0) {
+    return (
+      <div className="p-4 sm:p-6">
+        <div className="rounded-lg border p-8 text-center">
+          <p className="text-muted-foreground">
+            You are not in any organization. Contact your admin to get access,
+            or if you are an admin, use Manage Orgs to create one and add yourself.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <AuthGuard>
-      <AppShell>
-        <div className="p-4 sm:p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <h1 className="text-2xl font-semibold">Dashboard</h1>
             <Button asChild>
@@ -76,13 +89,23 @@ export default function DashboardPage() {
           </div>
 
           <IncidentTable
+            orgId={activeOrgId}
             status={status === "ALL" ? undefined : status}
             severity={severity === "ALL" ? undefined : severity}
           />
 
-          <OverdueActionItemsPanel />
+          <OverdueActionItemsPanel orgId={activeOrgId} />
         </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <AuthGuard>
+      <AppShell>
+        <DashboardContent />
       </AppShell>
     </AuthGuard>
   );
 }
+

@@ -1,15 +1,16 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-import { getCurrentUser } from "./helpers";
+import { getCurrentUser, requireOrgAccess } from "./helpers";
 
 /**
  * List audit logs for an entity (incident, timeline event, or action item).
  * Also loads audit logs for child timeline events and action items when entityType is incident.
- * Ordered by timestamp descending (newest first).
+ * Ordered by timestamp descending (newest first). Scoped to organization.
  */
 export const listAuditLogs = query({
   args: {
+    orgId: v.id("orgs"),
     entityType: v.union(
       v.literal("incident"),
       v.literal("timeline"),
@@ -22,7 +23,8 @@ export const listAuditLogs = query({
     ),
   },
   handler: async (ctx, args) => {
-    await getCurrentUser(ctx);
+    const profile = await getCurrentUser(ctx);
+    await requireOrgAccess(ctx, profile._id, args.orgId);
 
     const directLogs = await ctx.db
       .query("auditLogs")
@@ -31,8 +33,10 @@ export const listAuditLogs = query({
       )
       .collect();
 
+    const orgScopedLogs = directLogs.filter((log) => log.orgId === args.orgId);
+
     if (args.entityType !== "incident") {
-      return directLogs;
+      return orgScopedLogs;
     }
 
     const incidentId = args.entityId as Id<"incidents">;
@@ -54,7 +58,7 @@ export const listAuditLogs = query({
           q.eq("entityType", "timeline").eq("entityId", ev._id)
         )
         .collect();
-      childLogs.push(...logs);
+      childLogs.push(...logs.filter((log) => log.orgId === args.orgId));
     }
     for (const item of actionItems) {
       const logs = await ctx.db
@@ -63,10 +67,10 @@ export const listAuditLogs = query({
           q.eq("entityType", "actionItem").eq("entityId", item._id)
         )
         .collect();
-      childLogs.push(...logs);
+      childLogs.push(...logs.filter((log) => log.orgId === args.orgId));
     }
 
-    const allLogs = [...directLogs, ...childLogs];
+    const allLogs = [...orgScopedLogs, ...childLogs];
     return allLogs.sort((a, b) => b.timestamp - a.timestamp);
   },
 });

@@ -1,6 +1,8 @@
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 
+export type OrgId = Id<"orgs">;
+
 const WRITABLE_ROLES = ["admin", "editor"] as const;
 export type ProfileRole = "admin" | "editor" | "viewer";
 
@@ -90,6 +92,7 @@ export async function requireRole(
 }
 
 export type AuditLogParams = {
+  orgId: Id<"orgs">;
   actorId: Id<"profiles">;
   actorName: string;
   entityType: "incident" | "timeline" | "actionItem" | "profile";
@@ -103,6 +106,7 @@ export type AuditLogParams = {
  */
 export async function writeAuditLog(ctx: MutationCtx, params: AuditLogParams): Promise<void> {
   await ctx.db.insert("auditLogs", {
+    orgId: params.orgId,
     actorId: params.actorId,
     actorName: params.actorName,
     entityType: params.entityType,
@@ -111,6 +115,53 @@ export async function writeAuditLog(ctx: MutationCtx, params: AuditLogParams): P
     changes: params.changes,
     timestamp: Date.now(),
   });
+}
+
+/**
+ * Assert that a document has orgId (for backwards compat with pre-migration data).
+ * Throws if orgId is missing - run migrateToOrgs.
+ */
+export function assertOrgId<T extends { orgId?: Id<"orgs"> }>(
+  doc: T,
+  message = "Organization scope missing. Run migrations.migrateToOrgs."
+): asserts doc is T & { orgId: Id<"orgs"> } {
+  if (!doc.orgId) throw new Error(message);
+}
+
+/**
+ * Verify the current user is a member of the given organization. Throws if not.
+ */
+export async function requireOrgMembership(
+  ctx: QueryCtx | MutationCtx,
+  profileId: Id<"profiles">,
+  orgId: Id<"orgs">
+): Promise<void> {
+  const membership = await ctx.db
+    .query("orgMembers")
+    .withIndex("by_orgId_profileId", (q) =>
+      q.eq("orgId", orgId).eq("profileId", profileId)
+    )
+    .unique();
+
+  if (!membership) {
+    throw new Error("You do not have access to this organization");
+  }
+}
+
+/**
+ * Verify the user has access to the given organization. Admins can access any org;
+ * other users must be members.
+ */
+export async function requireOrgAccess(
+  ctx: QueryCtx | MutationCtx,
+  profileId: Id<"profiles">,
+  orgId: Id<"orgs">
+): Promise<void> {
+  const profile = await ctx.db.get(profileId);
+  if (profile?.role === "admin") {
+    return; // Admins can access any org
+  }
+  await requireOrgMembership(ctx, profileId, orgId);
 }
 
 /**

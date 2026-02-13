@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useConvexAuth } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { UserButton } from "@clerk/nextjs";
-import { LayoutDashboard, Menu, Plus, Users } from "lucide-react";
+import { Building2, LayoutDashboard, Menu, Plus, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -20,6 +20,9 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { AdminRoleManagementDialog } from "@/components/admin/AdminRoleManagementDialog";
+import { OrgManagementDialog } from "@/components/admin/OrgManagementDialog";
+import { OrgProvider, useOrg } from "@/contexts/OrgContext";
+import { OrgSwitcher } from "@/components/shared/OrgSwitcher";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -27,18 +30,15 @@ const navItems = [
 ];
 
 /**
- * Enterprise sidebar layout with navigation, user info, and responsive design.
- * - Logo / app name at top
- * - Nav links: Dashboard, New Incident
- * - User section at bottom with UserButton + role badge
- * - Admin section: Manage Users link (admin only)
- * - Responsive: collapsible on mobile via Sheet
+ * Inner AppShell that uses OrgContext. Must be wrapped by OrgProvider.
  */
-export function AppShell({ children }: { children: React.ReactNode }) {
+function AppShellContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
+  const [orgDialogOpen, setOrgDialogOpen] = useState(false);
   const { isAuthenticated } = useConvexAuth();
+  const { activeOrgId, userOrgs } = useOrg();
   const syncProfile = useMutation(api.users.syncProfile);
   const profile = useQuery(
     api.users.getCurrentUserProfile,
@@ -53,6 +53,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const NavContent = () => (
     <>
+      {userOrgs.length > 0 && (
+        <div className="border-b border-sidebar-border px-2 py-3">
+          <OrgSwitcher />
+        </div>
+      )}
       <div className="flex flex-col gap-2 px-2 py-4">
         {navItems.map((item) => (
           <Link
@@ -74,7 +79,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {profile?.role === "admin" && (
         <>
           <Separator />
-          <div className="px-2 py-4">
+          <div className="px-2 py-4 space-y-1">
+            <button
+              type="button"
+              onClick={() => {
+                setOrgDialogOpen(true);
+                setOpen(false);
+              }}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              )}
+            >
+              <Building2 className="size-4" />
+              Manage Orgs
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -177,7 +196,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <AdminRoleManagementDialog
         open={adminDialogOpen}
         onOpenChange={setAdminDialogOpen}
+        orgId={activeOrgId}
+      />
+      <OrgManagementDialog
+        open={orgDialogOpen}
+        onOpenChange={setOrgDialogOpen}
       />
     </div>
+  );
+}
+
+/**
+ * Enterprise sidebar layout with navigation, user info, and responsive design.
+ * - Org switcher for multi-tenant support
+ * - Nav links: Dashboard, New Incident
+ * - User section at bottom with UserButton + role badge
+ * - Admin section: Manage Users link (admin only)
+ * - Responsive: collapsible on mobile via Sheet
+ */
+export function AppShell({ children }: { children: React.ReactNode }) {
+  return (
+    <OrgProvider>
+      <AppShellContent>{children}</AppShellContent>
+    </OrgProvider>
   );
 }
