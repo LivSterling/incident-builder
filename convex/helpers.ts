@@ -95,9 +95,28 @@ export type AuditLogParams = {
   orgId: Id<"orgs">;
   actorId: Id<"profiles">;
   actorName: string;
-  entityType: "incident" | "timeline" | "actionItem" | "profile";
-  entityId: Id<"incidents"> | Id<"timelineEvents"> | Id<"actionItems"> | Id<"profiles">;
-  action: "create" | "update" | "delete" | "statusChange" | "autoCreate";
+  entityType:
+    | "incident"
+    | "timeline"
+    | "actionItem"
+    | "profile"
+    | "automation"
+    | "digest";
+  entityId:
+    | Id<"incidents">
+    | Id<"timelineEvents">
+    | Id<"actionItems">
+    | Id<"profiles">
+    | Id<"automationRuns">
+    | Id<"digests">;
+  action:
+    | "create"
+    | "update"
+    | "delete"
+    | "statusChange"
+    | "autoCreate"
+    | "automationEscalation"
+    | "automationReminder";
   changes: string;
 };
 
@@ -162,6 +181,87 @@ export async function requireOrgAccess(
     return; // Admins can access any org
   }
   await requireOrgMembership(ctx, profileId, orgId);
+}
+
+/**
+ * Get or create the system profile used as actor for automated actions.
+ * Uses a reserved userId that does not correspond to a real user.
+ */
+export async function getSystemProfile(ctx: MutationCtx): Promise<Doc<"profiles">> {
+  const SYSTEM_USER_ID = "convex-automation-system";
+  const existing = await ctx.db
+    .query("profiles")
+    .withIndex("by_userId", (q) => q.eq("userId", SYSTEM_USER_ID))
+    .unique();
+
+  if (existing) {
+    return existing;
+  }
+
+  const profileId = await ctx.db.insert("profiles", {
+    userId: SYSTEM_USER_ID,
+    role: "admin",
+    name: "System",
+    email: "system@automation.local",
+  });
+
+  const created = await ctx.db.get(profileId);
+  if (!created) {
+    throw new Error("Failed to create system profile");
+  }
+  return created;
+}
+
+/**
+ * Check if a notification with the given dedupeKey already exists.
+ * Used for idempotency to avoid duplicate notifications per user per day.
+ */
+export async function notificationWithDedupeKeyExists(
+  ctx: QueryCtx | MutationCtx,
+  dedupeKey: string
+): Promise<boolean> {
+  const existing = await ctx.db
+    .query("notifications")
+    .withIndex("by_dedupeKey", (q) => q.eq("dedupeKey", dedupeKey))
+    .first();
+  return existing !== null;
+}
+
+/**
+ * Create a notification if one with the same dedupeKey does not already exist.
+ * Returns the created notification ID or null if skipped (duplicate).
+ */
+export async function createNotificationIfNotExists(
+  ctx: MutationCtx,
+  params: {
+    orgId: Id<"orgs">;
+    userId: Id<"profiles">;
+    type: "INCIDENT_ESCALATION" | "ACTION_DUE_SOON" | "ACTION_OVERDUE" | "WEEKLY_DIGEST";
+    entityType: "incident" | "actionItem" | "digest";
+    entityId: string;
+    title: string;
+    body: string;
+    link: string;
+    dedupeKey: string;
+  }
+): Promise<Id<"notifications"> | null> {
+  const exists = await notificationWithDedupeKeyExists(ctx, params.dedupeKey);
+  if (exists) {
+    return null;
+  }
+
+  return await ctx.db.insert("notifications", {
+    orgId: params.orgId,
+    userId: params.userId,
+    type: params.type,
+    entityType: params.entityType,
+    entityId: params.entityId,
+    title: params.title,
+    body: params.body,
+    link: params.link,
+    dedupeKey: params.dedupeKey,
+    createdAt: Date.now(),
+  });
 }
 
 /**
