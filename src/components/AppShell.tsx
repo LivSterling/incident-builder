@@ -5,6 +5,7 @@ import { useConvexAuth } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { UserButton } from "@clerk/nextjs";
 import { Building2, LayoutDashboard, Menu, Plus, Users } from "lucide-react";
+import { NotificationBell } from "@/components/shared/NotificationBell";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -125,22 +126,25 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
         </div>
         <NavContent />
         <div className="mt-auto border-t border-sidebar-border p-4">
-          <div className="flex items-center gap-3">
-            <UserButton
-              afterSignOutUrl="/"
-              appearance={{
-                elements: {
-                  avatarBox: "size-8",
-                },
-              }}
-            />
-            <div className="flex flex-1 flex-col min-w-0">
-              <span className="truncate text-sm font-medium text-sidebar-foreground">
-                {profile?.name ?? "Loading..."}
-              </span>
-              <Badge variant="secondary" className="w-fit text-xs capitalize">
-                {profile?.role ?? "—"}
-              </Badge>
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <div className="flex flex-1 items-center gap-3">
+              <UserButton
+                afterSignOutUrl="/"
+                appearance={{
+                  elements: {
+                    avatarBox: "size-8",
+                  },
+                }}
+              />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-sm font-medium text-sidebar-foreground">
+                  {profile?.name ?? "Loading..."}
+                </span>
+                <Badge variant="secondary" className="w-fit text-xs capitalize">
+                  {profile?.role ?? "—"}
+                </Badge>
+              </div>
             </div>
           </div>
         </div>
@@ -150,6 +154,7 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile header */}
         <header className="flex h-14 shrink-0 items-center gap-2 border-b border-sidebar-border px-4 md:hidden">
+          <NotificationBell />
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon">

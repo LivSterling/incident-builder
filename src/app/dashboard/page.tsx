@@ -1,10 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AppShell } from "@/components/AppShell";
 import { IncidentTable } from "@/components/incidents/IncidentTable";
 import { OverdueActionItemsPanel } from "@/components/incidents/OverdueActionItemsPanel";
+import { RecentAutomationsPanel } from "@/components/dashboard/RecentAutomationsPanel";
+import { WeeklyDigestsPanel } from "@/components/dashboard/WeeklyDigestsPanel";
 import { useOrg } from "@/contexts/OrgContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +28,7 @@ function DashboardContent() {
   const [status, setStatus] = useState<StatusFilter>("ALL");
   const [severity, setSeverity] = useState<SeverityFilter>("ALL");
   const { activeOrgId, userOrgs, isLoading } = useOrg();
+  const profile = useQuery(api.users.getCurrentUserProfile, {});
 
   if (!isLoading && userOrgs.length === 0) {
     return (
@@ -95,6 +100,15 @@ function DashboardContent() {
           />
 
           <OverdueActionItemsPanel orgId={activeOrgId} />
+
+          <WeeklyDigestsPanel orgId={activeOrgId} />
+
+          {profile?.role === "admin" && (
+            <RecentAutomationsPanel
+              orgId={activeOrgId}
+              isAdmin={true}
+            />
+          )}
         </div>
   );
 }
