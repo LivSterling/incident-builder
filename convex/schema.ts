@@ -63,9 +63,11 @@ export default defineSchema({
       v.literal("DONE")
     ),
     createdBy: v.id("profiles"),
+    actionItemType: v.optional(v.string()), // "confirm_monitoring" | "update_runbook" | "schedule_retro" | undefined for manual
   })
     .index("by_incidentId", ["incidentId"])
-    .index("by_status_dueDate", ["status", "dueDate"]),
+    .index("by_status_dueDate", ["status", "dueDate"])
+    .index("by_incidentId_type", ["incidentId", "actionItemType"]),
 
   auditLogs: defineTable({
     actorId: v.id("profiles"),
@@ -86,7 +88,8 @@ export default defineSchema({
       v.literal("create"),
       v.literal("update"),
       v.literal("delete"),
-      v.literal("statusChange")
+      v.literal("statusChange"),
+      v.literal("autoCreate")
     ),
     changes: v.string(),
     timestamp: v.number(),

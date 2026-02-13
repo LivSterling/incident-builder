@@ -31,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { PriorityBadge } from "@/components/shared/PriorityBadge";
 import { ActionItemStatusBadge } from "@/components/shared/ActionItemStatusBadge";
 import { UserSelect } from "@/components/shared/UserSelect";
@@ -218,7 +219,14 @@ export function ActionItemsTab({ incidentId }: ActionItemsTabProps) {
                           className="h-8"
                         />
                       ) : (
-                        <span className="font-medium">{item.title}</span>
+                        <span className="font-medium flex items-center gap-2">
+                          {item.title}
+                          {item.actionItemType && (
+                            <Badge variant="secondary" className="text-xs">
+                              Auto
+                            </Badge>
+                          )}
+                        </span>
                       )}
                     </TableCell>
                     <TableCell>

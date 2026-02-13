@@ -1,6 +1,84 @@
 import { mutation, query } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { getCurrentUser, requireRole, writeAuditLog, WRITABLE_ROLES } from "./helpers";
+
+// Postmortem automation configuration
+const POSTMORTEM_ACTION_ITEMS = [
+  { type: "confirm_monitoring", title: "Confirm monitoring/alerts" },
+  { type: "update_runbook", title: "Update runbook" },
+  { type: "schedule_retro", title: "Schedule retro review" },
+] as const;
+
+// Due date offsets from close time (in milliseconds)
+const DUE_DATE_OFFSETS: Record<string, number> = {
+  SEV1: 48 * 60 * 60 * 1000, // 48 hours
+  SEV2: 5 * 24 * 60 * 60 * 1000, // 5 days
+  SEV3: 10 * 24 * 60 * 60 * 1000, // 10 days
+  SEV4: 14 * 24 * 60 * 60 * 1000, // 14 days
+};
+
+// Priority mapping by severity
+const PRIORITY_BY_SEVERITY: Record<string, "P0" | "P1" | "P2"> = {
+  SEV1: "P0",
+  SEV2: "P1",
+  SEV3: "P2",
+  SEV4: "P2",
+};
+
+async function createPostmortemActionItems(
+  ctx: MutationCtx,
+  incident: Doc<"incidents">,
+  actor: Doc<"profiles">
+): Promise<Id<"actionItems">[]> {
+  const closeTime = Date.now();
+  const dueDateOffset = DUE_DATE_OFFSETS[incident.severity] ?? DUE_DATE_OFFSETS.SEV4;
+  const dueDate = closeTime + dueDateOffset;
+  const priority = PRIORITY_BY_SEVERITY[incident.severity] ?? "P2";
+  const ownerId = incident.ownerId ?? actor._id;
+
+  const createdIds: Id<"actionItems">[] = [];
+
+  for (const item of POSTMORTEM_ACTION_ITEMS) {
+    const existing = await ctx.db
+      .query("actionItems")
+      .withIndex("by_incidentId_type", (q) =>
+        q.eq("incidentId", incident._id).eq("actionItemType", item.type)
+      )
+      .first();
+
+    if (existing) continue;
+
+    const itemId = await ctx.db.insert("actionItems", {
+      incidentId: incident._id,
+      title: item.title,
+      ownerId,
+      priority,
+      dueDate,
+      status: "OPEN",
+      createdBy: actor._id,
+      actionItemType: item.type,
+    });
+
+    await writeAuditLog(ctx, {
+      actorId: actor._id,
+      actorName: actor.name,
+      entityType: "actionItem",
+      entityId: itemId,
+      action: "autoCreate",
+      changes: JSON.stringify({
+        created: { title: item.title, type: item.type },
+        automation: "postmortem_close",
+        incidentId: incident._id,
+      }),
+    });
+
+    createdIds.push(itemId);
+  }
+
+  return createdIds;
+}
 
 /**
  * List incidents with optional status and severity filters.
@@ -231,7 +309,7 @@ export const updateIncident = mutation({
 
 /**
  * Set incident status (OPEN/MITIGATED/CLOSED).
- * CLOSED requires rootCause and at least 1 action item.
+ * CLOSED requires rootCause. Auto-creates postmortem action items on close.
  */
 export const setIncidentStatus = mutation({
   args: {
@@ -252,13 +330,6 @@ export const setIncidentStatus = mutation({
       if (!incident.rootCause?.trim()) {
         throw new Error("Root cause required to close incident");
       }
-      const items = await ctx.db
-        .query("actionItems")
-        .withIndex("by_incidentId", (q) => q.eq("incidentId", args.id))
-        .collect();
-      if (items.length === 0) {
-        throw new Error("At least 1 action item required to close incident");
-      }
     }
     const oldStatus = incident.status;
     await ctx.db.patch(args.id, { status: args.status });
@@ -270,6 +341,12 @@ export const setIncidentStatus = mutation({
       action: "statusChange",
       changes: JSON.stringify({ status: { old: oldStatus, new: args.status } }),
     });
+    if (args.status === "CLOSED" && oldStatus !== "CLOSED") {
+      const updatedIncident = await ctx.db.get(args.id);
+      if (updatedIncident) {
+        await createPostmortemActionItems(ctx, updatedIncident, user);
+      }
+    }
     return args.id;
   },
 });
