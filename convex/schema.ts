@@ -2,6 +2,21 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  orgs: defineTable({
+    name: v.string(),
+    slug: v.string(),
+    createdAt: v.number(),
+  }).index("by_slug", ["slug"]),
+
+  orgMembers: defineTable({
+    orgId: v.id("orgs"),
+    profileId: v.id("profiles"),
+    joinedAt: v.number(),
+  })
+    .index("by_orgId", ["orgId"])
+    .index("by_profileId", ["profileId"])
+    .index("by_orgId_profileId", ["orgId", "profileId"]),
+
   profiles: defineTable({
     userId: v.string(),
     role: v.union(
@@ -15,6 +30,7 @@ export default defineSchema({
   }).index("by_userId", ["userId"]),
 
   incidents: defineTable({
+    orgId: v.optional(v.id("orgs")),
     title: v.string(),
     severity: v.union(
       v.literal("SEV1"),
@@ -35,19 +51,25 @@ export default defineSchema({
     ownerId: v.id("profiles"),
     createdBy: v.id("profiles"),
   })
+    .index("by_orgId", ["orgId"])
     .index("by_status", ["status"])
     .index("by_severity", ["severity"])
-    .index("by_ownerId", ["ownerId"]),
+    .index("by_ownerId", ["ownerId"])
+    .index("by_orgId_status", ["orgId", "status"]),
 
   timelineEvents: defineTable({
+    orgId: v.optional(v.id("orgs")),
     incidentId: v.id("incidents"),
     occurredAt: v.number(),
     message: v.string(),
     actor: v.string(),
     createdBy: v.id("profiles"),
-  }).index("by_incidentId", ["incidentId"]),
+  })
+    .index("by_incidentId", ["incidentId"])
+    .index("by_orgId", ["orgId"]),
 
   actionItems: defineTable({
+    orgId: v.optional(v.id("orgs")),
     incidentId: v.id("incidents"),
     title: v.string(),
     ownerId: v.id("profiles"),
@@ -66,10 +88,13 @@ export default defineSchema({
     actionItemType: v.optional(v.string()), // "confirm_monitoring" | "update_runbook" | "schedule_retro" | undefined for manual
   })
     .index("by_incidentId", ["incidentId"])
+    .index("by_orgId", ["orgId"])
     .index("by_status_dueDate", ["status", "dueDate"])
-    .index("by_incidentId_type", ["incidentId", "actionItemType"]),
+    .index("by_incidentId_type", ["incidentId", "actionItemType"])
+    .index("by_orgId_status_dueDate", ["orgId", "status", "dueDate"]),
 
   auditLogs: defineTable({
+    orgId: v.optional(v.id("orgs")),
     actorId: v.id("profiles"),
     actorName: v.string(),
     entityType: v.union(
@@ -94,6 +119,8 @@ export default defineSchema({
     changes: v.string(),
     timestamp: v.number(),
   })
+    .index("by_orgId", ["orgId"])
     .index("by_entityType_entityId", ["entityType", "entityId"])
-    .index("by_timestamp", ["timestamp"]),
+    .index("by_timestamp", ["timestamp"])
+    .index("by_orgId_timestamp", ["orgId", "timestamp"]),
 });

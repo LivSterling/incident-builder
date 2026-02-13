@@ -53,19 +53,19 @@ export default function IncidentDetailPage() {
                 <TabsTrigger value="audit">Audit Log</TabsTrigger>
               </TabsList>
               <TabsContent value="overview">
-                <OverviewTab incidentId={id} />
+                <OverviewTab incidentId={id} orgId={incident.orgId} />
               </TabsContent>
               <TabsContent value="timeline">
                 <TimelineTab incidentId={id} />
               </TabsContent>
               <TabsContent value="action-items">
-                <ActionItemsTab incidentId={id} />
+                <ActionItemsTab incidentId={id} orgId={incident.orgId} />
               </TabsContent>
               <TabsContent value="postmortem">
                 <PostmortemTab incidentId={id} />
               </TabsContent>
               <TabsContent value="audit">
-                <AuditLogTab incidentId={id} />
+                <AuditLogTab incidentId={id} orgId={incident.orgId} />
               </TabsContent>
             </Tabs>
           )}

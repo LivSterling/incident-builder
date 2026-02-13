@@ -17,6 +17,7 @@ import {
 
 interface AuditLogTabProps {
   incidentId: Id<"incidents">;
+  orgId: Id<"orgs">;
 }
 
 function EntityLabel({
@@ -38,8 +39,9 @@ function EntityLabel({
   );
 }
 
-export function AuditLogTab({ incidentId }: AuditLogTabProps) {
+export function AuditLogTab({ incidentId, orgId }: AuditLogTabProps) {
   const logs = useQuery(api.auditLogs.listAuditLogs, {
+    orgId,
     entityType: "incident",
     entityId: incidentId,
   });

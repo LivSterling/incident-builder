@@ -2,7 +2,14 @@ import { mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
-import { getCurrentUser, requireRole, writeAuditLog, WRITABLE_ROLES } from "./helpers";
+import {
+  getCurrentUser,
+  requireRole,
+  requireOrgAccess,
+  assertOrgId,
+  writeAuditLog,
+  WRITABLE_ROLES,
+} from "./helpers";
 
 // Postmortem automation configuration
 const POSTMORTEM_ACTION_ITEMS = [
@@ -32,6 +39,7 @@ async function createPostmortemActionItems(
   incident: Doc<"incidents">,
   actor: Doc<"profiles">
 ): Promise<Id<"actionItems">[]> {
+  assertOrgId(incident);
   const closeTime = Date.now();
   const dueDateOffset = DUE_DATE_OFFSETS[incident.severity] ?? DUE_DATE_OFFSETS.SEV4;
   const dueDate = closeTime + dueDateOffset;
@@ -51,6 +59,7 @@ async function createPostmortemActionItems(
     if (existing) continue;
 
     const itemId = await ctx.db.insert("actionItems", {
+      orgId: incident.orgId,
       incidentId: incident._id,
       title: item.title,
       ownerId,
@@ -62,6 +71,7 @@ async function createPostmortemActionItems(
     });
 
     await writeAuditLog(ctx, {
+      orgId: incident.orgId,
       actorId: actor._id,
       actorName: actor.name,
       entityType: "actionItem",
@@ -86,6 +96,7 @@ async function createPostmortemActionItems(
  */
 export const listIncidents = query({
   args: {
+    orgId: v.id("orgs"),
     status: v.optional(
       v.union(v.literal("OPEN"), v.literal("MITIGATED"), v.literal("CLOSED"))
     ),
@@ -99,28 +110,25 @@ export const listIncidents = query({
     ),
   },
   handler: async (ctx, args) => {
-    await getCurrentUser(ctx);
+    const profile = await getCurrentUser(ctx);
+    await requireOrgAccess(ctx, profile._id, args.orgId);
 
     let incidents;
     if (args.status) {
       incidents = await ctx.db
         .query("incidents")
-        .withIndex("by_status", (q) => q.eq("status", args.status!))
-        .collect();
-    } else if (args.severity) {
-      incidents = await ctx.db
-        .query("incidents")
-        .withIndex("by_severity", (q) => q.eq("severity", args.severity!))
+        .withIndex("by_orgId_status", (q) =>
+          q.eq("orgId", args.orgId).eq("status", args.status!)
+        )
         .collect();
     } else {
-      incidents = await ctx.db.query("incidents").collect();
+      incidents = await ctx.db
+        .query("incidents")
+        .withIndex("by_orgId", (q) => q.eq("orgId", args.orgId))
+        .collect();
     }
 
-    if (args.status && args.severity) {
-      incidents = incidents.filter(
-        (i) => i.status === args.status && i.severity === args.severity
-      );
-    } else if (args.severity && !args.status) {
+    if (args.severity) {
       incidents = incidents.filter((i) => i.severity === args.severity);
     }
 
@@ -146,12 +154,13 @@ export const listIncidents = query({
 export const getIncident = query({
   args: { id: v.id("incidents") },
   handler: async (ctx, args) => {
-    await getCurrentUser(ctx);
-
+    const profile = await getCurrentUser(ctx);
     const incident = await ctx.db.get(args.id);
     if (!incident) {
       return null;
     }
+    assertOrgId(incident);
+    await requireOrgAccess(ctx, profile._id, incident.orgId);
 
     const owner = await ctx.db.get(incident.ownerId);
     return {
@@ -208,6 +217,7 @@ export const getPublicPostmortem = query({
 });
 
 const incidentValidator = {
+  orgId: v.id("orgs"),
   title: v.string(),
   severity: v.union(
     v.literal("SEV1"),
@@ -230,7 +240,10 @@ export const createIncident = mutation({
   args: incidentValidator,
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, WRITABLE_ROLES, { createIfMissing: true });
+    await requireOrgAccess(ctx, user._id, args.orgId);
+
     const incidentId = await ctx.db.insert("incidents", {
+      orgId: args.orgId,
       title: args.title,
       severity: args.severity,
       status: "OPEN",
@@ -243,6 +256,7 @@ export const createIncident = mutation({
       createdBy: user._id,
     });
     await writeAuditLog(ctx, {
+      orgId: args.orgId,
       actorId: user._id,
       actorName: user.name,
       entityType: "incident",
@@ -282,6 +296,8 @@ export const updateIncident = mutation({
     if (!incident) {
       throw new Error("Incident not found");
     }
+    assertOrgId(incident);
+    await requireOrgAccess(ctx, user._id, incident.orgId);
     const { id, ...updates } = args;
     const changes: Record<string, { old: unknown; new: unknown }> = {};
     for (const [key, value] of Object.entries(updates)) {
@@ -295,6 +311,7 @@ export const updateIncident = mutation({
     if (Object.keys(changes).length > 0) {
       await ctx.db.patch(args.id, updates as Partial<typeof incident>);
       await writeAuditLog(ctx, {
+        orgId: incident.orgId,
         actorId: user._id,
         actorName: user.name,
         entityType: "incident",
@@ -326,6 +343,8 @@ export const setIncidentStatus = mutation({
     if (!incident) {
       throw new Error("Incident not found");
     }
+    assertOrgId(incident);
+    await requireOrgAccess(ctx, user._id, incident.orgId);
     if (args.status === "CLOSED") {
       if (!incident.rootCause?.trim()) {
         throw new Error("Root cause required to close incident");
@@ -334,6 +353,7 @@ export const setIncidentStatus = mutation({
     const oldStatus = incident.status;
     await ctx.db.patch(args.id, { status: args.status });
     await writeAuditLog(ctx, {
+      orgId: incident.orgId,
       actorId: user._id,
       actorName: user.name,
       entityType: "incident",
@@ -357,12 +377,13 @@ export const setIncidentStatus = mutation({
 export const deleteIncident = mutation({
   args: { id: v.id("incidents") },
   handler: async (ctx, args) => {
-    await requireRole(ctx, ["admin"]);
+    const user = await requireRole(ctx, ["admin"]);
     const incident = await ctx.db.get(args.id);
     if (!incident) {
       throw new Error("Incident not found");
     }
-    const user = await getCurrentUser(ctx);
+    assertOrgId(incident);
+    await requireOrgAccess(ctx, user._id, incident.orgId);
     const timelineEvents = await ctx.db
       .query("timelineEvents")
       .withIndex("by_incidentId", (q) => q.eq("incidentId", args.id))
@@ -379,6 +400,7 @@ export const deleteIncident = mutation({
     }
     await ctx.db.delete(args.id);
     await writeAuditLog(ctx, {
+      orgId: incident.orgId,
       actorId: user._id,
       actorName: user.name,
       entityType: "incident",

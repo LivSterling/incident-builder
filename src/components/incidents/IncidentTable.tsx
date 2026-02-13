@@ -19,16 +19,25 @@ type StatusFilter = "OPEN" | "MITIGATED" | "CLOSED";
 type SeverityFilter = "SEV1" | "SEV2" | "SEV3" | "SEV4";
 
 interface IncidentTableProps {
+  orgId: import("../../../convex/_generated/dataModel").Id<"orgs"> | null;
   status?: StatusFilter;
   severity?: SeverityFilter;
 }
 
-export function IncidentTable({ status, severity }: IncidentTableProps) {
+export function IncidentTable({ orgId, status, severity }: IncidentTableProps) {
   const router = useRouter();
-  const incidents = useQuery(api.incidents.listIncidents, {
-    status,
-    severity,
-  });
+  const incidents = useQuery(
+    api.incidents.listIncidents,
+    orgId ? { orgId, status, severity } : "skip"
+  );
+
+  if (!orgId) {
+    return (
+      <div className="rounded-md border p-8 text-center text-muted-foreground">
+        Select an organization to view incidents.
+      </div>
+    );
+  }
 
   if (incidents === undefined) {
     return (

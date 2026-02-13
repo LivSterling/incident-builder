@@ -1,6 +1,13 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { getCurrentUser, requireRole, writeAuditLog, WRITABLE_ROLES } from "./helpers";
+import {
+  getCurrentUser,
+  requireRole,
+  requireOrgAccess,
+  assertOrgId,
+  writeAuditLog,
+  WRITABLE_ROLES,
+} from "./helpers";
 
 /**
  * List action items for an incident, ordered by priority (P0, P1, P2).
@@ -8,7 +15,13 @@ import { getCurrentUser, requireRole, writeAuditLog, WRITABLE_ROLES } from "./he
 export const listActionItems = query({
   args: { incidentId: v.id("incidents") },
   handler: async (ctx, args) => {
-    await getCurrentUser(ctx);
+    const profile = await getCurrentUser(ctx);
+    const incident = await ctx.db.get(args.incidentId);
+    if (!incident) {
+      return [];
+    }
+    assertOrgId(incident);
+    await requireOrgAccess(ctx, profile._id, incident.orgId);
 
     const items = await ctx.db
       .query("actionItems")
@@ -33,15 +46,19 @@ export const listActionItems = query({
 
 /**
  * List all overdue action items (dueDate < now, status != DONE).
- * Sorted by most overdue first.
+ * Sorted by most overdue first. Scoped to organization.
  */
 export const listOverdueActionItems = query({
-  args: {},
-  handler: async (ctx) => {
-    await getCurrentUser(ctx);
+  args: { orgId: v.id("orgs") },
+  handler: async (ctx, args) => {
+    const profile = await getCurrentUser(ctx);
+    await requireOrgAccess(ctx, profile._id, args.orgId);
 
     const now = Date.now();
-    const allItems = await ctx.db.query("actionItems").collect();
+    const allItems = await ctx.db
+      .query("actionItems")
+      .withIndex("by_orgId", (q) => q.eq("orgId", args.orgId))
+      .collect();
 
     const overdue = allItems.filter(
       (item) => item.dueDate < now && item.status !== "DONE"
@@ -86,7 +103,11 @@ export const addActionItem = mutation({
     if (!incident) {
       throw new Error("Incident not found");
     }
+    assertOrgId(incident);
+    await requireOrgAccess(ctx, user._id, incident.orgId);
+
     const itemId = await ctx.db.insert("actionItems", {
+      orgId: incident.orgId,
       incidentId: args.incidentId,
       title: args.title,
       ownerId: args.ownerId,
@@ -96,6 +117,7 @@ export const addActionItem = mutation({
       createdBy: user._id,
     });
     await writeAuditLog(ctx, {
+      orgId: incident.orgId,
       actorId: user._id,
       actorName: user.name,
       entityType: "actionItem",
@@ -137,6 +159,8 @@ export const updateActionItem = mutation({
     if (!item) {
       throw new Error("Action item not found");
     }
+    assertOrgId(item);
+    await requireOrgAccess(ctx, user._id, item.orgId);
     const { id, ...updates } = args;
     const changes: Record<string, { old: unknown; new: unknown }> = {};
     for (const [key, value] of Object.entries(updates)) {
@@ -151,6 +175,7 @@ export const updateActionItem = mutation({
       const isStatusChange = "status" in changes;
       await ctx.db.patch(args.id, updates as Partial<typeof item>);
       await writeAuditLog(ctx, {
+        orgId: item.orgId,
         actorId: user._id,
         actorName: user.name,
         entityType: "actionItem",
@@ -174,8 +199,11 @@ export const deleteActionItem = mutation({
     if (!item) {
       throw new Error("Action item not found");
     }
+    assertOrgId(item);
+    await requireOrgAccess(ctx, user._id, item.orgId);
     await ctx.db.delete(args.id);
     await writeAuditLog(ctx, {
+      orgId: item.orgId,
       actorId: user._id,
       actorName: user.name,
       entityType: "actionItem",

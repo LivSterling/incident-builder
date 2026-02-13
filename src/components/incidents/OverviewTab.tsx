@@ -32,9 +32,10 @@ import { UserSelect } from "@/components/shared/UserSelect";
 
 interface OverviewTabProps {
   incidentId: Id<"incidents">;
+  orgId: Id<"orgs">;
 }
 
-export function OverviewTab({ incidentId }: OverviewTabProps) {
+export function OverviewTab({ incidentId, orgId }: OverviewTabProps) {
   const incident = useQuery(api.incidents.getIncident, { id: incidentId });
   const profile = useQuery(api.users.getCurrentUserProfile);
   const updateIncident = useMutation(api.incidents.updateIncident);
@@ -233,6 +234,7 @@ export function OverviewTab({ incidentId }: OverviewTabProps) {
                 <label className="text-sm font-medium">Owner</label>
                 <div className="mt-1">
                   <UserSelect
+                    orgId={orgId}
                     value={editValues.ownerId || undefined}
                     onValueChange={(v) =>
                       setEditValues((prev) => ({ ...prev, ownerId: v }))

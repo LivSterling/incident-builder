@@ -1,6 +1,13 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { getCurrentUser, requireRole, writeAuditLog, WRITABLE_ROLES } from "./helpers";
+import {
+  getCurrentUser,
+  requireRole,
+  requireOrgAccess,
+  assertOrgId,
+  writeAuditLog,
+  WRITABLE_ROLES,
+} from "./helpers";
 
 /**
  * List timeline events for an incident, ordered by occurredAt.
@@ -8,7 +15,13 @@ import { getCurrentUser, requireRole, writeAuditLog, WRITABLE_ROLES } from "./he
 export const listTimelineEvents = query({
   args: { incidentId: v.id("incidents") },
   handler: async (ctx, args) => {
-    await getCurrentUser(ctx);
+    const profile = await getCurrentUser(ctx);
+    const incident = await ctx.db.get(args.incidentId);
+    if (!incident) {
+      return [];
+    }
+    assertOrgId(incident);
+    await requireOrgAccess(ctx, profile._id, incident.orgId);
 
     const events = await ctx.db
       .query("timelineEvents")
@@ -34,7 +47,11 @@ export const addTimelineEvent = mutation({
     if (!incident) {
       throw new Error("Incident not found");
     }
+    assertOrgId(incident);
+    await requireOrgAccess(ctx, user._id, incident.orgId);
+
     const eventId = await ctx.db.insert("timelineEvents", {
+      orgId: incident.orgId,
       incidentId: args.incidentId,
       occurredAt: args.occurredAt,
       message: args.message,
@@ -42,6 +59,7 @@ export const addTimelineEvent = mutation({
       createdBy: user._id,
     });
     await writeAuditLog(ctx, {
+      orgId: incident.orgId,
       actorId: user._id,
       actorName: user.name,
       entityType: "timeline",
@@ -69,6 +87,8 @@ export const updateTimelineEvent = mutation({
     if (!event) {
       throw new Error("Timeline event not found");
     }
+    assertOrgId(event);
+    await requireOrgAccess(ctx, user._id, event.orgId);
     const { id, ...updates } = args;
     const changes: Record<string, { old: unknown; new: unknown }> = {};
     for (const [key, value] of Object.entries(updates)) {
@@ -82,6 +102,7 @@ export const updateTimelineEvent = mutation({
     if (Object.keys(changes).length > 0) {
       await ctx.db.patch(args.id, updates as Partial<typeof event>);
       await writeAuditLog(ctx, {
+        orgId: event.orgId,
         actorId: user._id,
         actorName: user.name,
         entityType: "timeline",
@@ -105,8 +126,11 @@ export const deleteTimelineEvent = mutation({
     if (!event) {
       throw new Error("Timeline event not found");
     }
+    assertOrgId(event);
+    await requireOrgAccess(ctx, user._id, event.orgId);
     await ctx.db.delete(args.id);
     await writeAuditLog(ctx, {
+      orgId: event.orgId,
       actorId: user._id,
       actorName: user.name,
       entityType: "timeline",

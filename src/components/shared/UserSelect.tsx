@@ -12,6 +12,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 interface UserSelectProps {
+  orgId: Id<"orgs"> | null;
   value?: Id<"profiles">;
   onValueChange?: (value: Id<"profiles">) => void;
   placeholder?: string;
@@ -19,14 +20,18 @@ interface UserSelectProps {
 }
 
 export function UserSelect({
+  orgId,
   value,
   onValueChange,
   placeholder = "Select owner",
   disabled,
 }: UserSelectProps) {
-  const users = useQuery(api.users.listUsers);
+  const users = useQuery(
+    api.users.listUsers,
+    orgId ? { orgId } : "skip"
+  );
 
-  if (users === undefined) {
+  if (!orgId || users === undefined) {
     return (
       <Select disabled>
         <SelectTrigger>
